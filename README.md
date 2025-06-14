@@ -1,11 +1,13 @@
-# Nome do Projeto
+# Base App - Boilerplate Moderno
 
 ![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?style=for-the-badge&logo=laravel)
 ![React](https://img.shields.io/badge/React-19.x-20232A?style=for-the-badge&logo=react)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-316192?style=for-the-badge&logo=postgresql)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
 
-[Breve descrição do seu incrível projeto. Explique em uma ou duas frases o que ele faz e qual seu objetivo principal.]
+Este repositório é um **projeto casca (boilerplate)**, totalmente configurado e pronto para servir de base para novos projetos modernos. Ele já traz uma estrutura completa, com integração entre backend e frontend, ambiente Dockerizado, scripts de automação e exemplos de configuração para facilitar o início de qualquer aplicação.
+
+> **Objetivo:** Fornecer um ponto de partida robusto, padronizado e produtivo para novos projetos, economizando tempo com configurações iniciais.
 
 ---
 ## 📋 Índice
