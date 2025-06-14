@@ -11,7 +11,8 @@ RUN apk add --no-cache \
     libpng-dev libjpeg-turbo-dev freetype-dev linux-headers \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) pdo pdo_pgsql bcmath zip opcache mbstring ctype xml intl pcntl gd sockets \
-    && pecl install redis && docker-php-ext-enable redis
+    && pecl install redis && docker-php-ext-enable redis \
+    && pecl install xdebug && docker-php-ext-enable xdebug
 
 # Cria grupo e usuário
 RUN addgroup -g ${GID} laravel && \
