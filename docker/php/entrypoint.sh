@@ -1,35 +1,37 @@
 #!/bin/sh
 
-# Verifica se o setup precisa ser executado
+# Só executa a lógica de setup para o serviço principal 'app'
 if [ "$1" = "php-fpm" ]; then
-    echo "📦 Verificando dependências PHP..."
-    if [ ! -d "vendor" ]; then
-        echo "🚀 Primeira inicialização detectada. Configurando o projeto..."
 
-        # 1. Instalar dependências do Composer
-        echo "🔧 Instalando dependências com Composer..."
+    # Se o ficheiro de trava não existir, roda a instalação completa
+    if [ ! -f "storage/app/.docker_setup_complete" ]; then
+        echo "🚀 Primeira inicialização do PHP detectada. Configurando o projeto..."
+
+        # Instala dependências do Composer
         composer install --no-interaction --no-progress --prefer-dist
 
-        # 2. gera a chave
-        echo "🔑 Gerando APP_KEY..."
-        /usr/local/bin/php artisan key:generate
+        # Gera a chave da aplicação
+        php artisan key:generate
 
-        # 3. Esperar o banco de dados
+        # Espera o banco de dados
         echo "⏳ Aguardando o banco de dados..."
-        until /usr/local/bin/php -r "try { new PDO('pgsql:host=postgres;port=5432;dbname=${DB_DATABASE}', '${DB_USERNAME}', '${DB_PASSWORD}'); } catch (PDOException \$e) { exit(1); }"; do
+        until php -r "try { new PDO('pgsql:host=postgres;port=5432;dbname=${DB_DATABASE}', '${DB_USERNAME}', '${DB_PASSWORD}'); } catch (PDOException \$e) { exit(1); }"; do
             sleep 2
         done
         echo "✅ Banco de dados está pronto."
 
-        # 4. Executar migrações e seeds
-        echo "🗃️ Executando migrações e seeds..."
-        /usr/local/bin/php artisan migrate --force --seed
+        # Roda migrações e seeds
+        php artisan migrate --force --seed
+
+        # Cria o ficheiro de trava para não executar novamente
+        touch storage/app/.docker_setup_complete
+        echo "✅ Setup do PHP concluído."
 
     else
-        echo "✅ Dependências PHP já instaladas."
+        echo "✅ Setup do PHP já concluído anteriormente."
     fi
 fi
 
-# Executa o comando principal do contêiner (ex: php-fpm)
-echo "🚀 Iniciando: $*"
+# Executa o comando principal que foi passado para o contentor (ex: php-fpm)
+echo "🚀 Iniciando (PHP): $*"
 exec "$@"

@@ -102,12 +102,16 @@ services:
             - laravel
 
     scheduler:
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
         image: base/app
         container_name: scheduler
         restart: unless-stopped
         working_dir: /var/www/html
         volumes:
             - ./:/var/www/html
+            - node_modules:/var/www/html/node_modules
         command: [ "sh", "-c", "while [ true ]; do php artisan schedule:run --no-ansi -q; sleep 60; done" ]
         networks:
             - laravel
@@ -115,12 +119,16 @@ services:
             - app
 
     queue:
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
         image: base/app
         container_name: queue
         restart: unless-stopped
         working_dir: /var/www/html
         volumes:
             - ./:/var/www/html
+            - node_modules:/var/www/html/node_modules
         command: [ "php", "artisan", "horizon" ]
         networks:
             - laravel
@@ -128,12 +136,16 @@ services:
             - app
 
     reverb:
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
         image: base/app
         container_name: reverb
         restart: unless-stopped
         working_dir: /var/www/html
         volumes:
             - ./:/var/www/html
+            - node_modules:/var/www/html/node_modules
         command: [ "php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=9090", "--debug"]
         ports:
             - "9090:9090"
@@ -144,7 +156,6 @@ services:
 
 volumes:
     pgdata:
-    vendor:
     node_modules:
 
 networks:

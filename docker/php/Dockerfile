@@ -3,30 +3,33 @@ FROM php:8.3-fpm-alpine
 ARG UID=1000
 ARG GID=1000
 
-# Instala dependências do sistema e extensões PHP
+# Copia o executável do Composer primeiro
+COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
+
+# Instala dependências do sistema e extensões PHP de forma otimizada
 RUN apk add --no-cache \
-    bash curl git \
-    autoconf gcc g++ make libc-dev \
-    libzip-dev icu-dev libxml2-dev postgresql-dev oniguruma-dev \
-    libpng-dev libjpeg-turbo-dev freetype-dev linux-headers \
+        bash curl git libzip-dev icu-dev libxml2-dev postgresql-dev \
+        oniguruma-dev libpng-dev libjpeg-turbo-dev freetype-dev \
+    && apk add --no-cache --virtual .build-deps \
+        $PHPIZE_DEPS linux-headers \
+    # Compila e instala as extensões
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) pdo pdo_pgsql bcmath zip opcache mbstring ctype xml intl pcntl gd sockets \
-    && pecl install redis && docker-php-ext-enable redis \
-    && pecl install xdebug && docker-php-ext-enable xdebug
+    && pecl install redis xdebug \
+    && docker-php-ext-enable redis xdebug \
+    # Limpeza: remove o grupo de dependências de build que não são mais necessárias
+    && apk del .build-deps
 
 # Cria grupo e usuário
 RUN addgroup -g ${GID} laravel && \
     adduser -u ${UID} -G laravel -s /bin/sh -D laravel
 
-# Copia o executável do Composer da imagem oficial para o nosso PATH
-COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
-
-# Copia script de entrada
-COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
 # Define o diretório de trabalho
 WORKDIR /var/www/html
+
+# Copia o script de entrada
+COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Troca para o usuário laravel
 USER laravel
@@ -37,5 +40,5 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 # Expõe a porta do PHP-FPM
 EXPOSE 9000
 
-# Comando padrão
+# Comando padrão que o entrypoint vai executar
 CMD ["php-fpm"]
