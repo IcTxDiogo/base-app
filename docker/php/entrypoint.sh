@@ -1,5 +1,27 @@
 #!/bin/sh
+
 set -e
+
+# Função para verificar se uma chave está vazia no ficheiro .env
+is_key_empty() {
+    # $1 é o nome da chave (ex: APP_KEY)
+    # $2 é o padrão para verificar (ex: base64:.+)
+    if ! grep -q "^$1=" .env; then
+        # Se a linha da chave nem sequer existe, consideramos "vazia"
+        return 0 # 0 significa 'true' em shell script (sucesso)
+    fi
+
+    # Extrai o valor depois do sinal de igual
+    VALUE=$(grep "^$1=" .env | cut -d'=' -f2-)
+
+    # Verifica se o valor extraído corresponde ao padrão de "preenchido"
+    if echo "$VALUE" | grep -E -q "^$2$"; then
+        return 1 # 1 significa 'false' (não está vazia)
+    else
+        return 0 # 0 significa 'true' (está vazia)
+    fi
+}
+
 
 # Só executa a lógica de setup para o serviço principal 'app'
 if [ "$1" = "php-fpm" ]; then
@@ -12,15 +34,28 @@ if [ "$1" = "php-fpm" ]; then
         composer install --no-interaction --no-progress --prefer-dist
 
         # 2. Gera a chave da aplicação, se não existir
-        if ! grep -q "APP_KEY=base64:.*" .env; then
+        if is_key_empty "APP_KEY" "base64:.+"; then
             echo "🔑 Gerando APP_KEY..."
             php artisan key:generate
+        else
+            echo "✅ APP_KEY já existe no .env."
         fi
 
-        # 3. Gera as chaves do Reverb, se não existirem
-        if ! grep -q "REVERB_APP_KEY=.*" .env; then
+        # 3. Gera e insere as chaves do Reverb, se estiverem em falta
+        if is_key_empty "REVERB_APP_KEY" ".+"; then
             echo "📡 Gerando chaves do Reverb..."
-            php artisan reverb:install
+
+            REVERB_APP_ID=$(php -r 'echo rand(100000, 999999);')
+            REVERB_KEY=$(php -r 'echo bin2hex(random_bytes(16));')
+            REVERB_SECRET=$(php -r 'echo bin2hex(random_bytes(32));')
+
+            sed -i "s/^REVERB_APP_ID=$/REVERB_APP_ID=${REVERB_APP_ID}/" .env
+            sed -i "s/^REVERB_APP_KEY=$/REVERB_APP_KEY=${REVERB_KEY}/" .env
+            sed -i "s/^REVERB_APP_SECRET=$/REVERB_APP_SECRET=${REVERB_SECRET}/" .env
+
+            echo "✅ Chaves do Reverb geradas e salvas no .env."
+        else
+            echo "✅ Chaves do Reverb já existem no .env."
         fi
 
         # 4. Espera o banco de dados
