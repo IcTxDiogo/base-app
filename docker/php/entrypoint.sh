@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 # Só executa a lógica de setup para o serviço principal 'app'
 if [ "$1" = "php-fpm" ]; then
@@ -7,23 +8,33 @@ if [ "$1" = "php-fpm" ]; then
     if [ ! -f "storage/app/.docker_setup_complete" ]; then
         echo "🚀 Primeira inicialização do PHP detectada. Configurando o projeto..."
 
-        # Instala dependências do Composer
+        # 1. Instala dependências do Composer
         composer install --no-interaction --no-progress --prefer-dist
 
-        # Gera a chave da aplicação
-        php artisan key:generate
+        # 2. Gera a chave da aplicação, se não existir
+        if ! grep -q "APP_KEY=base64:.*" .env; then
+            echo "🔑 Gerando APP_KEY..."
+            php artisan key:generate
+        fi
 
-        # Espera o banco de dados
+        # 3. Gera as chaves do Reverb, se não existirem
+        if ! grep -q "REVERB_APP_KEY=.*" .env; then
+            echo "📡 Gerando chaves do Reverb..."
+            php artisan reverb:install
+        fi
+
+        # 4. Espera o banco de dados
         echo "⏳ Aguardando o banco de dados..."
         until php -r "try { new PDO('pgsql:host=postgres;port=5432;dbname=${DB_DATABASE}', '${DB_USERNAME}', '${DB_PASSWORD}'); } catch (PDOException \$e) { exit(1); }"; do
             sleep 2
         done
         echo "✅ Banco de dados está pronto."
 
-        # Roda migrações e seeds
+        # 5. Roda migrações e seeds
+        echo "🗃️ Executando migrações e seeds..."
         php artisan migrate --force --seed
 
-        # Cria o ficheiro de trava para não executar novamente
+        # 6. Cria o ficheiro de trava para não executar novamente
         touch storage/app/.docker_setup_complete
         echo "✅ Setup do PHP concluído."
 

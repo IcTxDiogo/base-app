@@ -1,13 +1,10 @@
 #!/bin/sh
 set -e
 
-# Verifica se o primeiro argumento é um dos nossos atalhos.
-# Se for, ele o trata de forma especial.
-# Se não for, ele assume que é um comando do docker compose (como up, down, logs).
 case "$1" in
-    artisan|composer|test|php|npm|bash|shell|node-bash|node-shell)
+    artisan|composer|test|php|npm|bash|shell|node-bash|node-shell|root|reset) # <-- Adicionados 'root' e 'reset'
         COMMAND=$1
-        shift # Remove o primeiro argumento (o atalho) da lista
+        shift
 
         case "$COMMAND" in
             artisan)
@@ -21,17 +18,19 @@ case "$1" in
             php)
                 docker compose exec app php "$@" ;;
             bash|shell)
-                # Entra no terminal do container 'app'
                 docker compose exec app bash ;;
             node-bash|node-shell)
-                # Entra no terminal do container 'node'
                 docker compose exec node bash ;;
+            root)
+                docker compose exec --user root app bash ;;
+            reset)
+                echo "🧹 Limpando o ficheiro de trava do setup..."
+                docker compose exec app rm -f storage/app/.docker_setup_complete
+                echo "✅ Pronto! Execute './dev up -d' para forçar uma nova instalação das dependências do PHP."
+                ;;
         esac
         ;;
-
-    # Se o comando não for um dos atalhos acima...
     *)
-        # ...simplesmente execute o docker compose com os argumentos fornecidos.
         docker compose "$@"
         ;;
 esac
