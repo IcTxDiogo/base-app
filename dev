@@ -1,0 +1,55 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    artisan|composer|test|test-watch|test-coverage|php|npm|bash|shell|node-bash|node-shell|root|reset)
+        COMMAND=$1
+        shift
+
+        case "$COMMAND" in
+            artisan)
+                docker compose exec app php artisan "$@" ;;
+            composer)
+                docker compose exec app composer "$@" ;;
+            npm)
+                docker compose exec node npm "$@" ;;
+            test)
+                docker compose exec app php artisan test --parallel "$@" ;;
+            test-watch)
+                if ! command -v inotifywait >/dev/null 2>&1; then
+                    echo "[!] inotifywait não encontrado. Instale com: sudo apt install inotify-tools"
+                    exit 1
+                fi
+                docker compose exec -T app php artisan test --parallel
+                echo "[test-watch] Monitorando alterações em app/ e tests/... (Ctrl+C para sair)"
+                set +e
+                while true; do
+                    inotifywait -r -e modify,create,delete --exclude '(.git|storage|vendor|.phpunit.result.cache)' ./app ./tests >/dev/null
+                    clear
+                    echo "[test-watch] Alteração detectada, rodando testes..."
+                    docker compose exec -T app php artisan test --parallel
+                    echo "[test-watch] Aguardando novas alterações..."
+                done
+                set -e
+            ;;
+            test-coverage)
+                docker compose exec -e XDEBUG_MODE=coverage app php artisan test --parallel --coverage "$@" ;;
+            php)
+                docker compose exec app php "$@" ;;
+            bash|shell)
+                docker compose exec app bash ;;
+            node-bash|node-shell)
+                docker compose exec node bash ;;
+            root)
+                docker compose exec --user root app bash ;;
+            reset)
+                echo "🧹 Limpando o ficheiro de trava do setup..."
+                docker compose exec app rm -f storage/app/.docker_setup_complete
+                echo "✅ Pronto! Execute './dev up -d' para forçar uma nova instalação das dependências do PHP."
+                ;;
+        esac
+        ;;
+    *)
+        docker compose "$@"
+        ;;
+esac
