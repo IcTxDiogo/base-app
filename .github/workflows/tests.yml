@@ -7,22 +7,27 @@ on:
     branches: [develop, main]
 
 jobs:
-  # Job 1: Executa apenas os testes de backend (Pest)
   backend-tests:
     runs-on: ubuntu-latest
     name: 🏁 Testes de Backend (Pest)
 
-    # Adiciona um serviço de container para o PostgreSQL
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: laravel_test
+      DB_USERNAME: user
+      DB_PASSWORD: password
+
     services:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB: app_test
+          POSTGRES_DB: laravel_test
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
         ports:
           - 5432:5432
-        # Espera o serviço ficar saudável antes de continuar
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -40,43 +45,46 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_pgsql, redis
           tools: composer:v2
 
-      - name: 3. Instalar dependências do Composer
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+      - name: 3. Setup do Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
 
-      - name: 4. Copiar e configurar o .env
+      - name: 4. Instalar dependências (Composer e NPM)
         run: |
-          cp .env.example .env
-          sed -i '/^DB_CONNECTION=/s/=.*/=pgsql/' .env
-          sed -i '/^DB_HOST=/s/=.*/=127.0.0.1/' .env
-          sed -i '/^DB_PORT=/s/=.*/=5432/' .env
-          sed -i '/^DB_DATABASE=/s/=.*/=app_test/' .env
-          sed -i '/^DB_USERNAME=/s/=.*/=user/' .env
-          sed -i '/^DB_PASSWORD=/s/=.*/=password/' .env
-          # Para testes de backend, podemos usar 'sync' e 'array' para velocidade
-          sed -i '/^QUEUE_CONNECTION=/s/=.*/=sync/' .env
-          sed -i '/^CACHE_STORE=/s/=.*/=array/' .env
-          sed -i '/^SESSION_DRIVER=/s/=.*/=array/' .env
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+          npm ci
 
-      - name: 5. Gerar a chave da aplicação
+      - name: 5. Definir Permissões de Pasta
+        run: chmod -R 777 storage bootstrap/cache
+
+      - name: 6. Copiar .env.example para .env
+        run: cp .env.dusk.local.example .env
+
+      - name: 7. Compilar os assets para o manifesto
+        run: npm run build
+
+      - name: 8. Gerar a chave da aplicação
         run: php artisan key:generate
 
-      - name: 6. Executar os testes de backend
-        # O comando do seu boilerplate para rodar Pest em paralelo
-        run: ./dev pest-test
+      - name: 9. Limpar caches de configuração
+        run: php artisan config:clear
+
+      - name: 10. Executar os testes de backend
+        run: php artisan test --parallel
 
   # Job 2: Executa os testes de browser (Dusk)
   dusk-tests:
     runs-on: ubuntu-latest
     name: 🚗 Testes de Browser (Dusk)
-    # Garante que os testes de backend passem antes de rodar os de Dusk
     needs: backend-tests
 
-    # Também precisa do serviço de banco de dados
     services:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB: app_test
+          POSTGRES_DB: laravel_test
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
         ports:
@@ -117,22 +125,37 @@ jobs:
 
       - name: 7. Copiar e configurar os ambientes
         run: |
-          # Configurar o .env principal (para migrações e backend)
-          cp .env.example .env
+          cp .env.dusk.local.example .env
           sed -i '/^DB_CONNECTION=/s/=.*/=pgsql/' .env
           sed -i '/^DB_HOST=/s/=.*/=127.0.0.1/' .env
           sed -i '/^DB_PORT=/s/=.*/=5432/' .env
-          sed -i '/^DB_DATABASE=/s/=.*/=app_test/' .env
+          sed -i '/^DB_DATABASE=/s/=.*/=laravel_test/' .env
           sed -i '/^DB_USERNAME=/s/=.*/=user/' .env
           sed -i '/^DB_PASSWORD=/s/=.*/=password/' .env
+           sed -i '/^APP_URL=/s/=.*/=http:\/\/127.0.0.1:8000/' .env
 
-          # Criar e configurar o .env.dusk.local para o Dusk
-          cp .env.dusk.example .env.dusk.local
-          sed -i '/^APP_URL=/s/=.*/=http:\/\/localhost:8000/' .env.dusk.local
-          # No ambiente CI, o Vite não está em modo "watch", então não precisamos de VITE_DEV_SERVER_URL
+          cp .env.dusk.local.example .env.dusk.local
+          sed -i '/^APP_URL=/s/=.*/=http:\/\/127.0.0.1:8000/' .env.dusk.local
 
       - name: 8. Gerar e sincronizar as chaves
         run: |
           php artisan key:generate
-          # Extrai a chave e aplica em ambos os ficheiros
-          APP_KEY=$(grep
+          APP_KEY=$(grep "^APP_KEY=" .env | cut -d'=' -f2-)
+          sed -i "s#^APP_KEY=.*#APP_KEY=${APP_KEY}#" .env.dusk.local
+
+      - name: 9. Executar as migrações
+        run: php artisan migrate --force
+
+      - name: 10. Iniciar o servidor da aplicação em background
+        run: php artisan serve &
+
+      - name: 11. Iniciar o ChromeDriver na Porta Correta
+        run: |
+          echo "Iniciando o ChromeDriver FORÇADAMENTE na porta 9515..."
+          chromedriver --port=9515 &
+
+          echo "Aguardando 5 segundos para o serviço estabilizar..."
+          sleep 5
+
+      - name: 12. Executar os testes de Dusk
+        run: php artisan dusk
