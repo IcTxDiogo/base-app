@@ -75,7 +75,7 @@ Copie os ficheiros de ambiente de exemplo. O script de inicialização cuidará 
 
 ```bash
 cp .env.example .env
-cp .env.dusk.example .env.dusk.local
+cp .env.dusk.local.example .env.dusk.local
 ```
 
 Após copiar, **edite os ficheiros `.env` e `.env.dusk.local`** para preencher os valores necessários (como `DB_USERNAME` e `DB_PASSWORD`).
