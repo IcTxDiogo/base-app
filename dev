@@ -16,22 +16,31 @@ case "$1" in
             test)
                 docker compose exec app php artisan test --parallel "$@" ;;
             test-watch)
+                PEST_ARGS="$@"
+
                 if ! command -v inotifywait >/dev/null 2>&1; then
                     echo "[!] inotifywait não encontrado. Instale com: sudo apt install inotify-tools"
                     exit 1
                 fi
-                docker compose exec -T app php artisan test --parallel
-                echo "[test-watch] Monitorando alterações em app/ e tests/... (Ctrl+C para sair)"
+
+                run_tests() {
+                    clear
+                    echo "[test-watch] A executar testes com os argumentos: '$PEST_ARGS'..."
+                    docker compose exec \
+                      -e COLUMNS=$(tput cols) \
+                      -T app php artisan test $PEST_ARGS || true
+                    echo "\n[test-watch] ✅ Testes concluídos. A aguardar novas alterações... (Ctrl+C para sair)"
+                }
+
+                run_tests
+
                 set +e
                 while true; do
-                    inotifywait -r -e modify,create,delete --exclude '(.git|storage|vendor|.phpunit.result.cache)' ./app ./tests >/dev/null
-                    clear
-                    echo "[test-watch] Alteração detectada, rodando testes..."
-                    docker compose exec -T app php artisan test --parallel
-                    echo "[test-watch] Aguardando novas alterações..."
+                    inotifywait -r -e modify,create,delete --exclude '(\.git|storage|vendor|\.phpunit\.result\.cache)' ./app ./tests >/dev/null 2>&1
+                    run_tests
                 done
                 set -e
-            ;;
+                ;;
             test-coverage)
                 docker compose exec -e XDEBUG_MODE=coverage app php artisan test --parallel --coverage "$@" ;;
             php)
