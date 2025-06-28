@@ -10,6 +10,7 @@
 .env
 .env.backup
 .env.production
+.env.dusk.local
 .phpactor.json
 .phpunit.result.cache
 Homestead.json
@@ -23,3 +24,4 @@ yarn-error.log
 /.vscode
 /.zed
 /public/coverage
+/public/coverage-dusk

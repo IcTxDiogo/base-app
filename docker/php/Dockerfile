@@ -8,7 +8,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 
 # Instala dependências do sistema e extensões PHP de forma otimizada
 RUN apk add --no-cache \
-        bash curl git libzip-dev icu-dev libxml2-dev postgresql-dev \
+        bash curl git libzip-dev icu-dev libxml2-dev postgresql-dev postgresql-client \
         oniguruma-dev libpng-dev libjpeg-turbo-dev freetype-dev \
     && apk add --no-cache --virtual .build-deps \
         $PHPIZE_DEPS linux-headers \

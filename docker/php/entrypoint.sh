@@ -30,32 +30,47 @@ if [ "$1" = "php-fpm" ]; then
     if [ ! -f "storage/app/.docker_setup_complete" ]; then
         echo "🚀 Primeira inicialização do PHP detectada. Configurando o projeto..."
 
+        # Define os ficheiros de ambiente a serem atualizados como uma string separada por espaços
+        TARGET_ENV_FILES=".env"
+        if [ -f ".env.dusk.local" ]; then
+            TARGET_ENV_FILES="$TARGET_ENV_FILES .env.dusk.local"
+            echo "ℹ️ Ficheiro .env.dusk.local encontrado. As chaves serão sincronizadas."
+        fi
+
         # 1. Instala dependências do Composer
         composer install --no-interaction --no-progress --prefer-dist
 
-        # 2. Gera a chave da aplicação, se não existir
+        # 2. Gera a chave da aplicação, se não existir, e sincroniza
         if is_key_empty "APP_KEY" "base64:.+"; then
-            echo "🔑 Gerando APP_KEY..."
+            echo "🔑 Gerando nova APP_KEY..."
             php artisan key:generate
+            NEW_APP_KEY=$(grep "^APP_KEY=" .env | cut -d'=' -f2-)
+
+            echo "🔄 Sincronizando APP_KEY nos ficheiros de ambiente..."
+            for FILE in $TARGET_ENV_FILES; do # Loop sobre a string
+                sed -i "s#^APP_KEY=.*#APP_KEY=${NEW_APP_KEY}#" "$FILE"
+                echo "   ✓ APP_KEY atualizada em ${FILE}"
+            done
         else
-            echo "✅ APP_KEY já existe no .env."
+            echo "✅ APP_KEY já existe."
         fi
 
         # 3. Gera e insere as chaves do Reverb, se estiverem em falta
         if is_key_empty "REVERB_APP_KEY" ".+"; then
-            echo "📡 Gerando chaves do Reverb..."
-
+            echo "📡 Gerando novas chaves do Reverb..."
             REVERB_APP_ID=$(php -r 'echo rand(100000, 999999);')
             REVERB_KEY=$(php -r 'echo bin2hex(random_bytes(16));')
             REVERB_SECRET=$(php -r 'echo bin2hex(random_bytes(32));')
 
-            sed -i "s/^REVERB_APP_ID=$/REVERB_APP_ID=${REVERB_APP_ID}/" .env
-            sed -i "s/^REVERB_APP_KEY=$/REVERB_APP_KEY=${REVERB_KEY}/" .env
-            sed -i "s/^REVERB_APP_SECRET=$/REVERB_APP_SECRET=${REVERB_SECRET}/" .env
-
-            echo "✅ Chaves do Reverb geradas e salvas no .env."
+            echo "🔄 Sincronizando chaves do Reverb nos ficheiros de ambiente..."
+            for FILE in $TARGET_ENV_FILES; do
+                sed -i "s/^REVERB_APP_ID=.*/REVERB_APP_ID=${REVERB_APP_ID}/" "$FILE"
+                sed -i "s/^REVERB_APP_KEY=.*/REVERB_APP_KEY=${REVERB_KEY}/" "$FILE"
+                sed -i "s/^REVERB_APP_SECRET=.*/REVERB_APP_SECRET=${REVERB_SECRET}/" "$FILE"
+                echo "   ✓ Chaves do Reverb atualizadas em ${FILE}"
+            done
         else
-            echo "✅ Chaves do Reverb já existem no .env."
+            echo "✅ Chaves do Reverb já existem."
         fi
 
         # 4. Espera o banco de dados
@@ -65,11 +80,26 @@ if [ "$1" = "php-fpm" ]; then
         done
         echo "✅ Banco de dados está pronto."
 
-        # 5. Roda migrações e seeds
+        # 5 Verifica se a base de dados de teste já existe
+        if [ -z "${DB_TEST_DATABASE}" ]; then
+            echo "❌ A variável de ambiente DB_TEST_DATABASE não está definida. A sair."
+            exit 1
+        fi
+        echo "🔎 Verificando a base de dados de teste '${DB_TEST_DATABASE}'..."
+
+        if PGPASSWORD="${DB_PASSWORD}" psql -lqt -h postgres -U "${DB_USERNAME}" -d "postgres" | cut -d \| -f 1 | grep -qw "${DB_TEST_DATABASE}"; then
+            echo "✅ Base de dados de teste ('${DB_TEST_DATABASE}') já existe."
+        else
+            echo "🛠️ Base de dados de teste ('${DB_TEST_DATABASE}') não encontrada. A criar..."
+            PGPASSWORD="${DB_PASSWORD}" psql -h postgres -U "${DB_USERNAME}" -d "postgres" -c "CREATE DATABASE ${DB_TEST_DATABASE} OWNER ${DB_USERNAME}"
+            echo "✅ Base de dados de teste criada com sucesso."
+        fi
+
+        # 6. Roda migrações e seeds
         echo "🗃️ Executando migrações e seeds..."
         php artisan migrate --force --seed
 
-        # 6. Cria o ficheiro de trava para não executar novamente
+        # 7. Cria o ficheiro de trava para não executar novamente
         touch storage/app/.docker_setup_complete
         echo "✅ Setup do PHP concluído."
 

@@ -1,50 +1,138 @@
-name: tests
+name: Testes da Aplicação
 
 on:
   push:
-    branches:
-      - develop
-      - main
+    branches: [develop, main]
   pull_request:
-    branches:
-      - develop
-      - main
+    branches: [develop, main]
 
 jobs:
-  ci:
+  # Job 1: Executa apenas os testes de backend (Pest)
+  backend-tests:
     runs-on: ubuntu-latest
+    name: 🏁 Testes de Backend (Pest)
+
+    # Adiciona um serviço de container para o PostgreSQL
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: app_test
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        # Espera o serviço ficar saudável antes de continuar
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - name: Checkout
+      - name: 1. Checkout do código
         uses: actions/checkout@v4
 
-      - name: Setup PHP
+      - name: 2. Setup do PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.4
+          php-version: 8.3
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_pgsql, redis
           tools: composer:v2
-          coverage: xdebug
 
-      - name: Setup Node
+      - name: 3. Instalar dependências do Composer
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: 4. Copiar e configurar o .env
+        run: |
+          cp .env.example .env
+          sed -i '/^DB_CONNECTION=/s/=.*/=pgsql/' .env
+          sed -i '/^DB_HOST=/s/=.*/=127.0.0.1/' .env
+          sed -i '/^DB_PORT=/s/=.*/=5432/' .env
+          sed -i '/^DB_DATABASE=/s/=.*/=app_test/' .env
+          sed -i '/^DB_USERNAME=/s/=.*/=user/' .env
+          sed -i '/^DB_PASSWORD=/s/=.*/=password/' .env
+          # Para testes de backend, podemos usar 'sync' e 'array' para velocidade
+          sed -i '/^QUEUE_CONNECTION=/s/=.*/=sync/' .env
+          sed -i '/^CACHE_STORE=/s/=.*/=array/' .env
+          sed -i '/^SESSION_DRIVER=/s/=.*/=array/' .env
+
+      - name: 5. Gerar a chave da aplicação
+        run: php artisan key:generate
+
+      - name: 6. Executar os testes de backend
+        # O comando do seu boilerplate para rodar Pest em paralelo
+        run: ./dev pest-test
+
+  # Job 2: Executa os testes de browser (Dusk)
+  dusk-tests:
+    runs-on: ubuntu-latest
+    name: 🚗 Testes de Browser (Dusk)
+    # Garante que os testes de backend passem antes de rodar os de Dusk
+    needs: backend-tests
+
+    # Também precisa do serviço de banco de dados
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: app_test
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 1. Checkout do código
+        uses: actions/checkout@v4
+
+      - name: 2. Setup do PHP e Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_pgsql, redis
+          tools: composer:v2
+
+      - name: 3. Setup do Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install Node Dependencies
-        run: npm ci
+      - name: 4. Instalar o Google Chrome
+        uses: browser-actions/setup-chrome@v1
 
-      - name: Build Assets
+      - name: 5. Instalar dependências (Node e Composer)
+        run: |
+          npm ci
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: 6. Compilar os assets
         run: npm run build
 
-      - name: Install Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+      - name: 7. Copiar e configurar os ambientes
+        run: |
+          # Configurar o .env principal (para migrações e backend)
+          cp .env.example .env
+          sed -i '/^DB_CONNECTION=/s/=.*/=pgsql/' .env
+          sed -i '/^DB_HOST=/s/=.*/=127.0.0.1/' .env
+          sed -i '/^DB_PORT=/s/=.*/=5432/' .env
+          sed -i '/^DB_DATABASE=/s/=.*/=app_test/' .env
+          sed -i '/^DB_USERNAME=/s/=.*/=user/' .env
+          sed -i '/^DB_PASSWORD=/s/=.*/=password/' .env
 
-      - name: Copy Environment File
-        run: cp .env.example .env
+          # Criar e configurar o .env.dusk.local para o Dusk
+          cp .env.dusk.example .env.dusk.local
+          sed -i '/^APP_URL=/s/=.*/=http:\/\/localhost:8000/' .env.dusk.local
+          # No ambiente CI, o Vite não está em modo "watch", então não precisamos de VITE_DEV_SERVER_URL
 
-      - name: Generate Application Key
-        run: php artisan key:generate
-
-      - name: Tests
-        run: ./vendor/bin/pest
+      - name: 8. Gerar e sincronizar as chaves
+        run: |
+          php artisan key:generate
+          # Extrai a chave e aplica em ambos os ficheiros
+          APP_KEY=$(grep
