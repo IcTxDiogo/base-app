@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => {
             origin: serverUrl,
             hmr: {
                 host: new URL(serverUrl).hostname,
+                path: '/hmr',
             },
         },
         esbuild: {
