@@ -16,6 +16,14 @@
         <include>
             <directory>app</directory>
         </include>
+        <exclude>
+            <directory>app/Console</directory>
+            <directory>app/Exceptions</directory>
+            <file>app/Http/Middleware/TrustProxies.php</file>
+            <file>app/Http/Middleware/PreventRequestsDuringMaintenance.php</file>
+            <file>app/Providers/AppServiceProvider.php</file>
+            <file>app/Providers/HorizonServiceProvider.php</file>
+        </exclude>
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
