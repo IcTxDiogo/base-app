@@ -40,18 +40,13 @@ class MakeDomainCommand extends Command
 
     protected function createTestStructure(string $model): void
     {
-        $this->line("\n-> A criar a estrutura de testes de backend (Pest)...");
+        $this->line("\n-> A criar a estrutura de testes (Pest)...");
 
         $baseDir = "tests/Domains/{$model}/Feature";
 
         $this->createFileWithDirectory(base_path("{$baseDir}/{$model}Test.php"), $this->getFeatureTestTemplate($model, "{$model}Test"));
         $this->createFileWithDirectory(base_path("{$baseDir}/{$model}ServiceTest.php"), $this->getFeatureTestTemplate($model, "{$model}ServiceTest"));
         $this->createFileWithDirectory(base_path("{$baseDir}/Http/Controllers/{$model}ControllerTest.php"), $this->getFeatureTestTemplate($model, "Http\\Controllers\\{$model}ControllerTest"));
-
-        $this->line("\n-> A criar a estrutura de testes de Browser (Dusk)...");
-
-        $duskBaseDir = "tests/Browser/Domains/{$model}";
-        $this->createFileWithDirectory(base_path("{$duskBaseDir}/{$model}FlowTest.php"), $this->getBrowserTestTemplate($model, "{$model}FlowTest"));
     }
 
     protected function createFileWithDirectory(string $path, string $content): void
@@ -173,43 +168,6 @@ namespace {$namespace};
 test('exemplo de teste de funcionalidade para {$className}', function () {
     expect(true)->toBeTrue();
 });
-PHP;
-    }
-
-    protected function getBrowserTestTemplate(string $model, string $class): string
-    {
-        $namespace = "Tests\\Browser\\Domains\\{$model}";
-        $modelLowerPlural = Str::lower(Str::plural($model));
-        $url = "dashboard/{$modelLowerPlural}";
-
-        return <<<PHP
-<?php
-
-namespace {$namespace};
-
-use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Dusk\Browser;
-use Tests\DuskTestCase;
-
-class {$class} extends DuskTestCase
-{
-    /**
-     * Testa o fluxo principal de visualização da página de listagem.
-     *
-     * @return void
-     */
-    public function test_can_visit_listing_page(): void
-    {
-        \$user = User::factory()->create();
-
-        \$this->browse(function (Browser \$browser) use (\$user) {
-            \$browser->loginAs(\$user)
-                    ->visit('/{$url}')
-                    ->assertSee('{$model}');
-        });
-    }
-}
 PHP;
     }
 }
