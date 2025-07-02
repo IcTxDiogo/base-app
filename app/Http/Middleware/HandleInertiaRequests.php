@@ -51,6 +51,21 @@ class HandleInertiaRequests extends Middleware
                 'location' => $request->url(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'navigation' => $this->getNavigation($request),
         ];
+    }
+
+    private function getNavigation(Request $request): array
+    {
+        $navigation = [
+            [
+                'title' => 'Dashboard',
+                'href' => route('dashboard.index'),
+                'icon' => 'Dashboard',
+                'active' => $request->routeIs('dashboard.index')
+            ],
+        ];
+
+        return $navigation;
     }
 }
