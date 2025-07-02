@@ -5,11 +5,8 @@
          colors="true"
 >
     <testsuites>
-        <testsuite name="Unit">
-            <directory>tests/Unit</directory>
-        </testsuite>
-        <testsuite name="Feature">
-            <directory>tests/Feature</directory>
+        <testsuite name="Tests">
+            <directory suffix="Test.php">./tests/Domains</directory>
         </testsuite>
     </testsuites>
     <source>
@@ -19,6 +16,7 @@
         <exclude>
             <directory>app/Console</directory>
             <directory>app/Exceptions</directory>
+            <directory>app/Http/Controllers/Auth</directory>
             <file>app/Http/Middleware/TrustProxies.php</file>
             <file>app/Http/Middleware/PreventRequestsDuringMaintenance.php</file>
             <file>app/Providers/AppServiceProvider.php</file>
