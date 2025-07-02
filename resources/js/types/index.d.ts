@@ -1,4 +1,4 @@
-import { LucideIcon } from 'lucide-react';
+import { IconName } from '@/components/icon-map';
 import type { Config } from 'ziggy-js';
 
 export interface Auth {
@@ -18,7 +18,7 @@ export interface NavGroup {
 export interface NavItem {
     title: string;
     href: string;
-    icon?: LucideIcon | null;
+    icon: IconName;
     isActive?: boolean;
 }
 
@@ -28,6 +28,7 @@ export interface SharedData {
     auth: Auth;
     ziggy: Config & { location: string };
     sidebarOpen: boolean;
+    navigation: NavItem[] | NavGroup[];
     [key: string]: unknown;
 }
 
