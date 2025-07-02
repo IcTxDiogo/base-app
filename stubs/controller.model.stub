@@ -1,0 +1,64 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Data\{{ model }}Data;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Store{{ model }}Request;
+use App\Http\Requests\Update{{ model }}Request;
+use App\Models\{{ model }};
+use App\Services\{{ model }}Service;
+
+class {{ class }} extends Controller
+{
+    public function __construct(protected {{ model }}Service ${{ modelVariable }}Service)
+    {
+        $this->authorizeResource({{ model }}::class, '{{ modelVariable }}');
+    }
+
+    public function index()
+    {
+        // TODO: Implementar a lógica para mostrar a lista de recursos.
+    }
+
+    public function create()
+    {
+        // TODO: Implementar a lógica para mostrar o formulário de criação.
+    }
+
+    public function store(Store{{ model }}Request $request)
+    {
+        $dto = {{ model }}Data::fromRequest($request);
+        $this->{{ modelVariable }}Service->create($dto);
+
+        // TODO: Implementar o redirecionamento com mensagem de sucesso.
+        // return redirect()->route('{{ route }}.index');
+    }
+
+    public function show({{ model }} ${{ modelVariable }})
+    {
+        // TODO: Implementar a lógica para mostrar um recurso específico.
+    }
+
+    public function edit({{ model }} ${{ modelVariable }})
+    {
+        // TODO: Implementar a lógica para mostrar o formulário de edição.
+    }
+
+    public function update(Update{{ model }}Request $request, {{ model }} ${{ modelVariable }})
+    {
+        $dto = {{ model }}Data::fromRequest($request);
+        $this->{{ modelVariable }}Service->update(${{ modelVariable }}, $dto);
+
+        // TODO: Implementar o redirecionamento com mensagem de sucesso.
+        // return redirect()->route('{{ route }}.index');
+    }
+
+    public function destroy({{ model }} ${{ modelVariable }})
+    {
+        $this->{{ modelVariable }}Service->delete(${{ modelVariable }});
+
+        // TODO: Implementar o redirecionamento com mensagem de sucesso.
+        // return redirect()->route('{{ route }}.index');
+    }
+}
