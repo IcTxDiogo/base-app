@@ -1,24 +1,62 @@
-/.phpunit.cache
-/bootstrap/ssr
+# =============================================================================
+# Arquivos e Pastas do Laravel
+# =============================================================================
+
+# Dependências
 /node_modules
+/vendor
+
+# Diretório Público
 /public/build
 /public/hot
 /public/storage
-/storage/*.key
+
+# Diretório de Storage
+/storage/framework
+/storage/logs
+/storage/app/public
 /storage/pail
-/vendor
+/storage/*.key
+/storage/coverage
+
+# Cache do PHPUnit
+/.phpunit.cache
+.phpunit.result.cache
+
+# Cache de SSR do Inertia
+/bootstrap/ssr
+
+# =============================================================================
+# Arquivos de Ambiente e Sensíveis
+# =============================================================================
 .env
 .env.backup
 .env.production
-.phpactor.json
-.phpunit.result.cache
+
+# =============================================================================
+# Arquivos de Ferramentas de Desenvolvimento e IDEs
+# =============================================================================
+
+# IDEs e Editores
+/.idea
+/.vscode
+/.fleet
+/.zed
+
+# Ferramentas de Desenvolvimento Local
 Homestead.json
 Homestead.yaml
-npm-debug.log
-yarn-error.log
-/auth.json
-/.fleet
-/.idea
-/.nova
-/.vscode
-/.zed
+.phpactor.json
+auth.json
+
+# Logs de Erro
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =============================================================================
+# Arquivos Personalizados do Boilerplate
+# =============================================================================
+
+# Flag de controle de instalação do nosso ambiente Docker
+storage/installed.flag
