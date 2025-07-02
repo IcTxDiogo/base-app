@@ -1,0 +1,122 @@
+#!/bin/bash
+set -e
+
+APP_USER="sail"
+NODE_USER="node"
+ARGS=("$@")
+
+show_help() {
+    echo "Uso: ./dev <comando> [argumentos]"
+    echo ""
+    echo "Comandos de Gestão do Ambiente:"
+    echo "  up, down, ps, logs, ...  Executa qualquer comando padrão do Docker Compose (ex: ./dev logs -f app)."
+    echo "  reset                    Reseta o ambiente completamente, forçando uma nova instalação."
+    echo ""
+    echo "Ferramentas de Desenvolvimento:"
+    echo "  artisan [args]           Executa um comando Artisan (ex: ./dev artisan make:model Produto)."
+    echo "  composer [args]          Executa um comando Composer (ex: ./dev composer require ...)."
+    echo "  npm [args]               Executa um comando NPM (ex: ./dev npm install axios)."
+    echo "  php [args]               Executa um comando PHP genérico no container 'app'."
+    echo ""
+    echo "Ferramentas de Testes (Pest):"
+    echo "  test [pest args]         Roda os testes em PARALELO para máxima velocidade."
+    echo "  test:watch [pest args]   Roda os testes em modo 'watch', executando novamente a cada alteração."
+    echo "  test:coverage [args]     Gera um relatório de cobertura de código no terminal (PARALELO)."
+    echo "  test:coverage-html [args] Gera um relatório de cobertura em HTML (PARALELO) - storage/coverage/index.html."
+    echo "  test:debug [args]        Executa testes com Xdebug ativo para debug remoto (PARALELO)."
+    echo ""
+    echo "Acesso aos Containers:"
+    echo "  shell                    Abre um terminal no container 'app' como usuário '$APP_USER'."
+    echo "  node-shell               Abre um terminal no container 'node' como usuário '$NODE_USER'."
+    echo "  root                     Abre um terminal como 'root' no container 'app' (para tarefas de admin)."
+    echo ""
+    echo "  help | -h | --help       Mostra esta mensagem de ajuda."
+}
+
+case "$1" in
+    help|-h|--help)
+        show_help
+        ;;
+    reset)
+        echo "🔄 Resetando e reconstruindo o ambiente completamente..."
+        echo "-> Passo 1/3: Removendo flags de instalação..."
+        docker compose exec -u $APP_USER app sh -c "rm -f /var/www/html/storage/installed.flag"
+        docker compose exec -u $NODE_USER node sh -c "rm -f /var/www/html/node_modules/.installed.flag"
+        echo "-> Passo 2/3: Parando e removendo todos os containers..."
+        docker compose down
+        echo "-> Passo 3/3: Subindo o ambiente e executando a configuração inicial..."
+        docker compose up -d --build
+        echo ""
+        echo "✅ Ambiente resetado e no ar! A configuração inicial será executada em segundo plano."
+        echo "   Use './dev logs -f app' e './dev logs -f node' para acompanhar o processo."
+        ;;
+    artisan|art)
+        shift; echo "Laravel › php artisan $@"; docker compose exec -u $APP_USER app php artisan "$@"
+        ;;
+    composer|comp)
+        shift; echo "Composer › $@"; docker compose exec -u $APP_USER app composer "$@"
+        ;;
+    npm)
+        shift; echo "NPM › $@"; docker compose exec -u $NODE_USER node npm "$@"
+        ;;
+    php)
+        shift; echo "PHP › $@"; docker compose exec -u $APP_USER app php "$@"
+        ;;
+    test)
+        shift
+        echo "🧪 Executando testes com Pest (em paralelo)..."
+        docker compose exec -u $APP_USER app php artisan test --parallel "$@"
+        ;;
+    test:watch)
+        shift
+        PEST_ARGS="$@"
+
+        if ! command -v inotifywait >/dev/null 2>&1; then
+            echo "[!] 'inotifywait' não encontrado. Para usar o modo 'watch', por favor instale com: sudo apt install inotify-tools"
+            exit 1
+        fi
+
+        run_tests() {
+            clear
+            echo "[watch] Executando testes com os argumentos: '$PEST_ARGS'..."
+            docker compose exec -u $APP_USER -e COLUMNS=$(tput cols) -T app php artisan test $PEST_ARGS || true
+            echo -e "\n[watch] ✅ Testes concluídos. Aguardando novas alterações... (Ctrl+C para sair)"
+        }
+
+        run_tests
+        set +e
+        while true; do
+            inotifywait -r -e modify,create,delete --exclude '(\.git|storage|vendor|\.phpunit\.result\.cache|node_modules)' ./app ./tests >/dev/null 2>&1
+            run_tests
+        done
+        set -e
+        ;;
+    test:coverage)
+        shift
+        echo "📊 Gerando relatório de cobertura para Pest (paralelo)..."
+        echo "🔧 Configurando Xdebug para coverage..."
+        docker compose exec -e XDEBUG_MODE=coverage -u $APP_USER app php artisan test --parallel --coverage --min=80 "$@"
+        echo "✅ Relatório de cobertura gerado."
+        ;;
+    test:coverage-html)
+        shift
+        echo "📊 Gerando relatório de cobertura HTML (paralelo)..."
+        echo "🔧 Configurando Xdebug para coverage..."
+        docker compose exec -e XDEBUG_MODE=coverage -u $APP_USER app php artisan test --parallel --coverage-html=storage/coverage "$@"
+        echo "✅ Relatório HTML gerado em storage/coverage/index.html"
+        echo "💡 Para visualizar: abra storage/coverage/index.html no navegador"
+        ;;
+    test:debug)
+        shift
+        echo "🐛 Executando testes com Xdebug ativo para debug (paralelo)..."
+        docker compose exec -e XDEBUG_MODE=debug -e XDEBUG_TRIGGER=1 -u $APP_USER app php artisan test --parallel "$@"
+        ;;
+    shell)
+        echo "💻 Acessando o terminal do container 'app' como usuário '$APP_USER'..."; docker compose exec -u $APP_USER app bash ;;
+    node-shell)
+        echo "� Acessando o terminal do container 'node' como usuário '$NODE_USER'..."; docker compose exec -u $NODE_USER node sh ;;
+    root)
+        echo "🚨 Acessando o terminal do container 'app' como usuário 'root'..."; docker compose exec -u root app bash ;;
+    *)
+        echo "Docker › docker compose $@"; docker compose "$@" ;;
+esac
