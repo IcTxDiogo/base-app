@@ -7,12 +7,12 @@ use Tests\DuskTestCase;
 
 class ExampleTest extends DuskTestCase
 {
-    public function testBasicExample()
+    public function test_basic_example()
     {
         $this->browse(function (Browser $browser) {
             $browser->visit('/')
-                    ->waitForText('Laravel')
-                    ->assertSee('Laravel');
+                ->waitForText('Laravel')
+                ->assertSee('Laravel');
         });
     }
 }

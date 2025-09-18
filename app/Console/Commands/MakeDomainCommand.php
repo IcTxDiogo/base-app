@@ -53,13 +53,13 @@ class MakeDomainCommand extends Command
     {
         $directory = dirname($path);
 
-        if (!File::isDirectory($directory)) {
+        if (! File::isDirectory($directory)) {
             File::makeDirectory($directory, 0755, true, true);
         }
 
-        if (!File::exists($path)) {
+        if (! File::exists($path)) {
             File::put($path, $content);
-            $this->line("   ✓ Ficheiro criado: ".Str::after($path, base_path().'/'));
+            $this->line('   ✓ Ficheiro criado: '.Str::after($path, base_path().'/'));
         }
     }
 
@@ -155,7 +155,7 @@ PHP;
         if (str_contains($class, '\\')) {
             $parts = explode('\\', $class);
             $className = array_pop($parts);
-            $namespace .= '\\' . implode('\\', $parts);
+            $namespace .= '\\'.implode('\\', $parts);
         } else {
             $className = $class;
         }

@@ -62,7 +62,7 @@ class HandleInertiaRequests extends Middleware
                 'title' => 'Dashboard',
                 'href' => route('dashboard.index'),
                 'icon' => 'Dashboard',
-                'active' => $request->routeIs('dashboard.index')
+                'active' => $request->routeIs('dashboard.index'),
             ],
         ];
 
