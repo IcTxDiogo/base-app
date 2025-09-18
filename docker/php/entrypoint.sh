@@ -27,14 +27,24 @@ if [ "$IS_PRIMARY_APP" = "true" ]; then
             echo "Chaves do Reverb configuradas."
         fi
 
-        # 4. Aguarda o banco de dados estar pronto
+        # 4. gera uma app key para o .env.dusk.local
+        if [ -f .env.dusk.local ]; then
+            if grep -q "^APP_KEY=$" .env.dusk.local; then
+                echo "Gerando APP_KEY para o arquivo .env.dusk.local..."
+                DUSK_APP_KEY=$(php artisan key:generate --show)
+                sed -i "s|^APP_KEY=.*|APP_KEY=${DUSK_APP_KEY}|" .env.dusk.local
+                echo "APP_KEY para .env.dusk.local configurada."
+            fi
+        fi
+
+        # 5. Aguarda o banco de dados estar pronto
         echo "Aguardando o banco de dados..."
         sleep 5
 
-        # 5. Roda as migrations e seeds
+        # 6. Roda as migrations e seeds
         php artisan migrate:fresh --seed
 
-        # 6. Cria o arquivo de flag para não executar este bloco novamente
+        # 7. Cria o arquivo de flag para não executar este bloco novamente
         touch $FLAG_FILE
         echo "CONFIGURAÇÃO INICIAL CONCLUÍDA."
     else

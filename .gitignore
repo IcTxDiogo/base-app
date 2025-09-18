@@ -32,6 +32,7 @@
 .env
 .env.backup
 .env.production
+.env.dusk.local
 
 # =============================================================================
 # Arquivos de Ferramentas de Desenvolvimento e IDEs

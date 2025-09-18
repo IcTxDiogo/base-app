@@ -15,15 +15,15 @@ show_help() {
     echo "Ferramentas de Desenvolvimento:"
     echo "  artisan [args]           Executa um comando Artisan (ex: ./dev artisan make:model Produto)."
     echo "  composer [args]          Executa um comando Composer (ex: ./dev composer require ...)."
+    echo "  pint [args]              Formata o código com Laravel Pint (ex: ./dev pint --test)."
     echo "  npm [args]               Executa um comando NPM (ex: ./dev npm install axios)."
     echo "  php [args]               Executa um comando PHP genérico no container 'app'."
     echo ""
-    echo "Ferramentas de Testes (Pest):"
-    echo "  test [pest args]         Roda os testes em PARALELO para máxima velocidade."
-    echo "  test:watch [pest args]   Roda os testes em modo 'watch', executando novamente a cada alteração."
-    echo "  test:coverage [args]     Gera um relatório de cobertura de código no terminal (PARALELO)."
-    echo "  test:coverage-html [args] Gera um relatório de cobertura em HTML (PARALELO) - storage/coverage/index.html."
-    echo "  test:debug [args]        Executa testes com Xdebug ativo para debug remoto (PARALELO)."
+    echo "Ferramentas de Testes:"
+    echo "  test [pest args]         Roda os testes de backend (Unit/Feature) com Pest em paralelo."
+    echo "  test:watch [pest args]   Roda os testes de backend em modo 'watch'."
+    echo "  test:coverage [args]     Gera cobertura de código para os testes de backend."
+    echo "  test:dusk [dusk args]    Roda os testes de browser (End-to-End) com Dusk."
     echo ""
     echo "Acesso aos Containers:"
     echo "  shell                    Abre um terminal no container 'app' como usuário '$APP_USER'."
@@ -33,9 +33,20 @@ show_help() {
     echo "  help | -h | --help       Mostra esta mensagem de ajuda."
 }
 
+cleanup_node() {
+  echo "-> (Cleanup) Reiniciando container 'node' para desenvolvimento..."
+  docker compose start node >/dev/null 2>&1 || true
+}
+
 case "$1" in
     help|-h|--help)
         show_help
+        ;;
+    setup)
+        echo "copiando o .env e .env.dusk.local"
+        cp .env.example .env
+        cp .env.dusk.example .env.dusk.local
+        exit 1
         ;;
     reset)
         echo "🔄 Resetando e reconstruindo o ambiente completamente..."
@@ -56,6 +67,9 @@ case "$1" in
     composer|comp)
         shift; echo "Composer › $@"; docker compose exec -u $APP_USER app composer "$@"
         ;;
+    pint)
+        shift; echo "🎨 Formatando código com Pint..."; docker compose exec -u $APP_USER app ./vendor/bin/pint "$@"
+        ;;
     npm)
         shift; echo "NPM › $@"; docker compose exec -u $NODE_USER node npm "$@"
         ;;
@@ -64,7 +78,7 @@ case "$1" in
         ;;
     test)
         shift
-        echo "🧪 Executando testes com Pest (em paralelo)..."
+        echo "🧪 Executando testes de backend com Pest (em paralelo)..."
         docker compose exec -u $APP_USER app php artisan test --parallel "$@"
         ;;
     test:watch)
@@ -98,25 +112,29 @@ case "$1" in
         docker compose exec -e XDEBUG_MODE=coverage -u $APP_USER app php artisan test --parallel --coverage --min=80 "$@"
         echo "✅ Relatório de cobertura gerado."
         ;;
-    test:coverage-html)
+    test:dusk)
         shift
-        echo "📊 Gerando relatório de cobertura HTML (paralelo)..."
-        echo "🔧 Configurando Xdebug para coverage..."
-        docker compose exec -e XDEBUG_MODE=coverage -u $APP_USER app php artisan test --parallel --coverage-html=storage/coverage "$@"
-        echo "✅ Relatório HTML gerado em storage/coverage/index.html"
-        echo "💡 Para visualizar: abra storage/coverage/index.html no navegador"
-        ;;
-    test:debug)
-        shift
-        echo "🐛 Executando testes com Xdebug ativo para debug (paralelo)..."
-        docker compose exec -e XDEBUG_MODE=debug -e XDEBUG_TRIGGER=1 -u $APP_USER app php artisan test --parallel "$@"
+        trap cleanup_node EXIT
+
+        echo "🌒 Executando testes de Browser com Dusk..."
+        
+        echo "-> Compilando assets do frontend..."
+        docker compose exec -u $NODE_USER -e "FORCE_COLOR=1" node npm run build | tail -n 10
+        
+        echo "-> Parando container 'node' para remover o arquivo 'hot'..."
+        docker compose stop node >/dev/null 2>&1 || true
+        
+        echo "-> Rodando suíte de testes de browser..."
+        docker compose exec -u $APP_USER app php artisan dusk "$@"
+        
+        echo "✅ Testes Dusk finalizados com sucesso."
         ;;
     shell)
-        echo "💻 Acessando o terminal do container 'app' como usuário '$APP_USER'..."; docker compose exec -u $APP_USER app bash ;;
+        echo "💻 Acessando o terminal do container 'app' como usuário '$APP_USER'..."; docker compose exec -u $APP_USER app sh ;;
     node-shell)
-        echo "� Acessando o terminal do container 'node' como usuário '$NODE_USER'..."; docker compose exec -u $NODE_USER node sh ;;
+        echo "🌐 Acessando o terminal do container 'node' como usuário '$NODE_USER'..."; docker compose exec -u $NODE_USER node sh ;;
     root)
-        echo "🚨 Acessando o terminal do container 'app' como usuário 'root'..."; docker compose exec -u root app bash ;;
+        echo "🚨 Acessando o terminal do container 'app' como usuário 'root'..."; docker compose exec -u root app sh ;;
     *)
         echo "Docker › docker compose $@"; docker compose "$@" ;;
 esac

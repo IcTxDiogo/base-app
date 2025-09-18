@@ -46,6 +46,7 @@ services:
     ports:
       - '5432:5432'
     volumes:
+      - ./docker/postgres/create-test-db.sh:/docker-entrypoint-initdb.d/create-test-db.sh
       - pgdata:/var/lib/postgresql/data
     networks:
       - laravel
@@ -130,6 +131,17 @@ services:
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
     depends_on:
       - app
+    networks:
+      - laravel
+
+  dusk:
+    image: selenium/standalone-chrome:latest
+    container_name: laravel-dusk
+    restart: unless-stopped
+    shm_size: 2gb
+    environment:
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_SESSION_REQUEST_TIMEOUT=600
     networks:
       - laravel
 

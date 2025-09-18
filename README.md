@@ -16,7 +16,7 @@ git clone https://github.com/seu-usuario/seu-repo.git
 cd seu-repo
 
 # 2. Configure o ambiente
-cp .env.example .env
+./dev setup
 
 # 3. Inicie tudo (instala dependências automaticamente)
 ./dev up
